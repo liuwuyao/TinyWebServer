@@ -1,5 +1,3 @@
-
-
 服务器压力测试
 ===============
 Webbench是有名的网站压力测试工具，它是由[Lionbridge](http://www.lionbridge.com)公司开发。
@@ -33,12 +31,3 @@ Webbench对服务器进行压力测试，经压力测试可以实现上万的并
 > * 所有访问均成功
 
 <div align=center><img src="https://github.com/twomonkeyclub/TinyWebServer/blob/master/root/testresult.png" height="201"/> </div>
-
-模块详解
-------------
-请关注公众号 **“两猿社”**.
-> * 选择底部菜单栏：**互联网 -> 练手项目 -> 13 服务器测试**
-> * **带你丰富互联网相关项目经验，轻松应对校招！！！**
-> * **项目模块详细讲解，在公众号内持续更新！！！**
-
-<div align=center><img src="https://github.com/twomonkeyclub/TinyWebServer/blob/master/root/test1.jpg" height="350"/> </div>
