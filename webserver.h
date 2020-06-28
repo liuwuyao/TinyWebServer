@@ -26,13 +26,13 @@ public:
     ~WebServer();
 
     void init(int port , string user, string passWord, string databaseName,
-              int log_write , int sqlverify, int opt_linger, int trigmode, int sql_num,
+              int log_write , int opt_linger, int trigmode, int sql_num,
               int thread_num, int close_log, int actor_model);
 
     void thread_pool();
     void sql_pool();
     void log_write();
-
+    void trig_mode();
     void eventListen();
     void eventLoop();
     void timer(int connfd, struct sockaddr_in client_address);
@@ -61,7 +61,6 @@ public:
     string m_passWord;     //登陆数据库密码
     string m_databaseName; //使用数据库名
     int m_sql_num;
-    int m_SQLVerify;
 
     //线程池相关
     threadpool<http_conn> *m_pool;
@@ -73,9 +72,10 @@ public:
     int m_listenfd;
     int m_OPT_LINGER;
     int m_TRIGMode;
+    int m_LISTENTrigmode;
+    int m_CONNTrigmode;
 
     //定时器相关
-    sort_timer_lst timer_lst;
     client_data *users_timer;
     Utils utils;
 };

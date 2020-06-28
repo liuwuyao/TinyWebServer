@@ -16,14 +16,17 @@ public:
     //端口号
     int PORT;
 
-    //数据库校验方式
-    int SQLVerify;
-
     //日志写入方式
     int LOGWrite;
 
-    //触发模式
+    //触发组合模式
     int TRIGMode;
+
+    //listenfd触发模式
+    int LISTENTrigmode;
+
+    //connfd触发模式
+    int CONNTrigmode;
 
     //优雅关闭链接
     int OPT_LINGER;

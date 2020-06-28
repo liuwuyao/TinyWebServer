@@ -28,7 +28,7 @@ WebServer::~WebServer()
     delete m_pool;
 }
 
-void WebServer::init(int port, string user, string passWord, string databaseName, int log_write, int sqlverify,
+void WebServer::init(int port, string user, string passWord, string databaseName, int log_write, 
                      int opt_linger, int trigmode, int sql_num, int thread_num, int close_log, int actor_model)
 {
     m_port = port;
@@ -38,11 +38,38 @@ void WebServer::init(int port, string user, string passWord, string databaseName
     m_sql_num = sql_num;
     m_thread_num = thread_num;
     m_log_write = log_write;
-    m_SQLVerify = sqlverify;
     m_OPT_LINGER = opt_linger;
     m_TRIGMode = trigmode;
     m_close_log = close_log;
     m_actormodel = actor_model;
+}
+
+void WebServer::trig_mode()
+{
+    //LT + LT
+    if (0 == m_TRIGMode)
+    {
+        m_LISTENTrigmode = 0;
+        m_CONNTrigmode = 0;
+    }
+    //LT + ET
+    else if (1 == m_TRIGMode)
+    {
+        m_LISTENTrigmode = 0;
+        m_CONNTrigmode = 1;
+    }
+    //ET + LT
+    else if (2 == m_TRIGMode)
+    {
+        m_LISTENTrigmode = 1;
+        m_CONNTrigmode = 0;
+    }
+    //ET + ET
+    else if (3 == m_TRIGMode)
+    {
+        m_LISTENTrigmode = 1;
+        m_CONNTrigmode = 1;
+    }
 }
 
 void WebServer::log_write()
@@ -64,10 +91,7 @@ void WebServer::sql_pool()
     m_connPool->init("localhost", m_user, m_passWord, m_databaseName, 3306, m_sql_num, m_close_log);
 
     //初始化数据库读取表
-    if (0 == m_SQLVerify)
-        users->initmysql_result(m_connPool);
-    else if (1 == m_SQLVerify)
-        users->initresultFile(m_connPool);
+    users->initmysql_result(m_connPool);
 }
 
 void WebServer::thread_pool()
@@ -108,35 +132,35 @@ void WebServer::eventListen()
     ret = listen(m_listenfd, 5);
     assert(ret >= 0);
 
-    //工具类,信号和描述符基础操作
-    Utils::u_pipefd = m_pipefd;
-    Utils::u_epollfd = m_epollfd;
-
-    utils.init(timer_lst, TIMESLOT);
+    utils.init(TIMESLOT);
 
     //epoll创建内核事件表
     epoll_event events[MAX_EVENT_NUMBER];
     m_epollfd = epoll_create(5);
     assert(m_epollfd != -1);
 
-    utils.addfd(m_epollfd, m_listenfd, false, m_TRIGMode);
+    utils.addfd(m_epollfd, m_listenfd, false, m_LISTENTrigmode);
     http_conn::m_epollfd = m_epollfd;
 
     ret = socketpair(PF_UNIX, SOCK_STREAM, 0, m_pipefd);
     assert(ret != -1);
     utils.setnonblocking(m_pipefd[1]);
-    utils.addfd(m_epollfd, m_pipefd[0], false, m_TRIGMode);
+    utils.addfd(m_epollfd, m_pipefd[0], false, 0);
 
     utils.addsig(SIGPIPE, SIG_IGN);
     utils.addsig(SIGALRM, utils.sig_handler, false);
     utils.addsig(SIGTERM, utils.sig_handler, false);
 
     alarm(TIMESLOT);
+
+    //工具类,信号和描述符基础操作
+    Utils::u_pipefd = m_pipefd;
+    Utils::u_epollfd = m_epollfd;
 }
 
 void WebServer::timer(int connfd, struct sockaddr_in client_address)
 {
-    users[connfd].init(connfd, client_address, m_root, m_SQLVerify, m_TRIGMode, m_close_log, m_user, m_passWord, m_databaseName);
+    users[connfd].init(connfd, client_address, m_root, m_CONNTrigmode, m_close_log, m_user, m_passWord, m_databaseName);
 
     //初始化client_data数据
     //创建定时器，设置回调函数和超时时间，绑定用户数据，将定时器添加到链表中
@@ -148,7 +172,7 @@ void WebServer::timer(int connfd, struct sockaddr_in client_address)
     time_t cur = time(NULL);
     timer->expire = cur + 3 * TIMESLOT;
     users_timer[connfd].timer = timer;
-    timer_lst.add_timer(timer);
+    utils.m_timer_lst.add_timer(timer);
 }
 
 //若有数据传输，则将定时器往后延迟3个单位
@@ -157,7 +181,7 @@ void WebServer::adjust_timer(util_timer *timer)
 {
     time_t cur = time(NULL);
     timer->expire = cur + 3 * TIMESLOT;
-    timer_lst.adjust_timer(timer);
+    utils.m_timer_lst.adjust_timer(timer);
 
     LOG_INFO("%s", "adjust timer once");
 }
@@ -167,7 +191,7 @@ void WebServer::deal_timer(util_timer *timer, int sockfd)
     timer->cb_func(&users_timer[sockfd]);
     if (timer)
     {
-        timer_lst.del_timer(timer);
+        utils.m_timer_lst.del_timer(timer);
     }
 
     LOG_INFO("close fd %d", users_timer[sockfd].sockfd);
@@ -177,7 +201,7 @@ bool WebServer::dealclinetdata()
 {
     struct sockaddr_in client_address;
     socklen_t client_addrlength = sizeof(client_address);
-    if (0 == m_TRIGMode)
+    if (0 == m_LISTENTrigmode)
     {
         int connfd = accept(m_listenfd, (struct sockaddr *)&client_address, &client_addrlength);
         if (connfd < 0)
@@ -217,7 +241,7 @@ bool WebServer::dealclinetdata()
     return true;
 }
 
-bool WebServer::dealwithsignal(bool& timeout, bool& stop_server)
+bool WebServer::dealwithsignal(bool &timeout, bool &stop_server)
 {
     int ret = 0;
     int sig;
@@ -386,7 +410,7 @@ void WebServer::eventLoop()
             {
                 bool flag = dealwithsignal(timeout, stop_server);
                 if (false == flag)
-                    continue;
+                    LOG_ERROR("%s", "dealclientdata failure");
             }
             //处理客户连接上接收到的数据
             else if (events[i].events & EPOLLIN)
